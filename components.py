@@ -50,6 +50,40 @@ def inject_css():
             padding: 0.65rem 0.9rem;
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         }
+        .precision-chip {
+            display: inline-block;
+            border-radius: 4px;
+            padding: 0.08rem 0.38rem;
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+            line-height: 1.35;
+            white-space: nowrap;
+        }
+        .precision-card {
+            border: 1px solid #d8dee8;
+            border-radius: 8px;
+            padding: 0.95rem 1rem;
+            margin: 0.75rem 0;
+            background: #ffffff;
+        }
+        .precision-card h3 {
+            margin-top: 0;
+            margin-bottom: 0.35rem;
+        }
+        .precision-ladder {
+            border: 1px solid #d8dee8;
+            border-radius: 8px;
+            padding: 0.9rem;
+            background: #fbfcfe;
+        }
+        .precision-ladder-item {
+            border-left: 6px solid var(--precision-color);
+            padding: 0.55rem 0.65rem;
+            margin: 0.55rem 0;
+            background: white;
+            border-radius: 6px;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -412,3 +446,4 @@ def quantization_mapping_figure(result, step, focus_idx=0):
         legend=dict(orientation="h", y=-0.18),
     )
     return fig
+

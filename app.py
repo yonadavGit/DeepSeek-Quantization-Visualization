@@ -22,6 +22,19 @@ def joined_bits(fmt, rep):
     return " ".join(bit for _, bit, _ in bit_segments(fmt, rep))
 
 
+PRECISION_COLORS = {
+    "FP32": "#2f7d51",
+    "BF16": "#4776a8",
+    "FP8": "#d91b61",
+    "FP8 E4M3": "#d91b61",
+}
+
+
+def chip(name):
+    color = PRECISION_COLORS[name]
+    return f'<span class="precision-chip" style="background:{color}">{name}</span>'
+
+
 def quant_stepper(max_step):
     key = "quantization_step"
     if key not in st.session_state:
@@ -217,6 +230,154 @@ def render_number_formats():
     render_quantization_panel()
 
 
+def render_pillar1_mixed_precision():
+    st.title("Pillar 1: Mixed Precision Framework")
+    st.write(
+        "The first pillar is a precision policy for training. DeepSeek does not train "
+        "everything in FP8. It chooses the format based on what each tensor is doing."
+    )
+
+    left, right = st.columns([3, 1])
+    with right:
+        st.markdown("### Precision Ladder")
+        st.markdown(
+            f"""
+            <div class="precision-ladder">
+                <div class="precision-ladder-item" style="--precision-color:{PRECISION_COLORS['FP32']}">
+                    <b>{chip('FP32')}</b><br>
+                    Highest precision used here. Master weights, optimizer state, and weight gradients.
+                </div>
+                <div class="precision-ladder-item" style="--precision-color:{PRECISION_COLORS['BF16']}">
+                    <b>{chip('BF16')}</b><br>
+                    Middle ground. Stored activations, gradients between layers, and sensitive modules.
+                </div>
+                <div class="precision-ladder-item" style="--precision-color:{PRECISION_COLORS['FP8']}">
+                    <b>{chip('FP8')}</b><br>
+                    Lowest precision in this pillar. Used for the large GEMM inputs.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with left:
+        st.markdown(
+            f"""
+            <div class="precision-card">
+                <h3>The Core Rule</h3>
+                <p>
+                Use {chip('FP8')} where the computation is huge and repetitive.
+                Use {chip('BF16')} where values are passed between layers or the operation is sensitive.
+                Use {chip('FP32')} where errors would accumulate over training.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="precision-card">
+                <h3>1. Forward Pass</h3>
+                <p>The layer computes <code>y = W x</code>.</p>
+                <p>
+                The input activation <code>x</code> is stored as {chip('BF16')}.
+                The master weight <code>W_master</code> is kept in {chip('FP32')} or high precision.
+                For the actual matrix multiply, both are converted on the fly to {chip('FP8')}.
+                </p>
+                <p>
+                The expensive GEMM runs as <code>W_fp8 @ x_fp8</code>.
+                The result is accumulated in {chip('FP32')} and then stored as {chip('BF16')}.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="precision-card">
+                <h3>2. Backward Pass: dgrad</h3>
+                <p>This computes the gradient with respect to the input:</p>
+                <p><code>dL/dx = dL/dz @ W^T</code></p>
+                <p>
+                The incoming gradient <code>dL/dz</code> is stored as {chip('BF16')}, then converted to {chip('FP8')}.
+                The weight matrix is also converted to {chip('FP8')} for the GEMM.
+                The result <code>dL/dx</code> is accumulated in {chip('FP32')} and stored as {chip('BF16')}.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="precision-card">
+                <h3>3. Backward Pass: wgrad</h3>
+                <p>This computes the weight gradient:</p>
+                <p><code>dL/dW = x^T @ dL/dz</code></p>
+                <p>
+                The inputs to this GEMM use {chip('FP8')}, but the output <code>dW</code> is accumulated
+                and stored in {chip('FP32')}.
+                </p>
+                <p>
+                This is the key stability choice: <code>dW</code> directly changes the model weights,
+                so DeepSeek does not store it in {chip('FP8')}.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="precision-card">
+                <h3>4. Optimizer Update</h3>
+                <p>The permanent model state is updated in high precision:</p>
+                <p><code>W_master_new = W_master_old - learning_rate * dW</code></p>
+                <p>
+                <code>W_master</code>, <code>dW</code>, and optimizer states such as AdamW momentum and variance
+                stay in {chip('FP32')}. After the update, the next forward pass can again cast weights down to
+                {chip('FP8')} for fast compute.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="precision-card">
+                <h3>Sensitive Modules That Bypass FP8</h3>
+                <p>
+                The PDF also says several Transformer components are kept in {chip('BF16')}:
+                embeddings, the output head, MoE gating, normalization layers, and attention
+                softmax/context calculation.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.subheader("Precision Assignments from the Chapter")
+    st.dataframe(
+        pd.DataFrame(
+            [
+                ["Master weights", "FP32", "Permanent model state; updated by optimizer."],
+                ["Optimizer states", "FP32", "Momentum/variance need stable accumulation."],
+                ["Fprop GEMM inputs", "FP8", "Fast matrix multiplication path."],
+                ["Dgrad GEMM inputs", "FP8", "Backprop input-gradient GEMM uses FP8 inputs."],
+                ["Wgrad result", "FP32", "Weight gradients are accumulated and stored at high precision."],
+                ["Inter-layer activations", "BF16", "Stored between transformer layers."],
+                ["Embeddings / output head / MoE gate / norm / attention softmax-context", "BF16", "Sensitive modules bypass FP8."],
+            ],
+            columns=["Component", "Precision", "Reason"],
+        ),
+        hide_index=True,
+        width="stretch",
+    )
+
+
 def render_placeholder(title):
     st.title(title)
     st.info(
@@ -228,7 +389,9 @@ def render_placeholder(title):
 st.sidebar.title("DeepSeek Quantization")
 page = st.sidebar.radio("Views", PAGES)
 
-if page in ("Number Formats", "Pillar 1: Mixed Precision"):
+if page == "Number Formats":
     render_number_formats()
+elif page == "Pillar 1: Mixed Precision":
+    render_pillar1_mixed_precision()
 else:
     render_placeholder(page)
