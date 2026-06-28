@@ -84,6 +84,106 @@ def inject_css():
             background: white;
             border-radius: 6px;
         }
+        .accum-panel {
+            border: 1px solid #d8dee8;
+            border-radius: 8px;
+            padding: 1rem;
+            min-height: 190px;
+            background: #ffffff;
+        }
+        .accum-panel.tensor {
+            border-top: 8px solid #cc2f66;
+            background: #fff7fb;
+        }
+        .accum-panel.cuda {
+            border-top: 8px solid #2f7d51;
+            background: #f4fbf6;
+        }
+        .accum-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+        .accum-equation {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92rem;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+            background: rgba(255,255,255,0.72);
+            border-radius: 6px;
+            padding: 0.7rem;
+        }
+        .delegation-arrow {
+            text-align: center;
+            font-weight: 800;
+            color: #2f7d51;
+            margin: 0.75rem 0;
+            font-size: 1.05rem;
+        }
+        .gpu-primer {
+            border: 1px solid #d8dee8;
+            border-radius: 8px;
+            padding: 1rem;
+            background: #fbfcfe;
+            margin: 0.75rem 0 1.1rem;
+        }
+        .gpu-card {
+            border: 1px solid #d8dee8;
+            border-top: 7px solid var(--gpu-color);
+            border-radius: 8px;
+            padding: 0.85rem;
+            min-height: 150px;
+            background: white;
+        }
+        .gpu-card h3 {
+            margin: 0 0 0.4rem;
+        }
+        .gpu-chip {
+            display: inline-block;
+            border-radius: 4px;
+            padding: 0.1rem 0.35rem;
+            color: white;
+            background: var(--gpu-color);
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+        .flow-card {
+            border: 1px solid #d8dee8;
+            border-radius: 8px;
+            background: #ffffff;
+            padding: 1rem 1.2rem;
+            margin-top: 1rem;
+        }
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.72rem 0.85rem;
+            border-radius: 8px;
+            background: #fbfcfe;
+            border: 1px solid #e6e9ef;
+            font-weight: 750;
+        }
+        .flow-step .tag {
+            border-radius: 4px;
+            color: white;
+            padding: 0.12rem 0.4rem;
+            font-size: 0.82rem;
+        }
+        .flow-arrow {
+            text-align: center;
+            color: #687387;
+            font-size: 1.45rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin: 0.1rem 0;
+        }
+        .flow-note {
+            text-align: center;
+            color: #2f7d51;
+            font-weight: 800;
+            margin: 0.15rem 0;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -446,4 +546,3 @@ def quantization_mapping_figure(result, step, focus_idx=0):
         legend=dict(orientation="h", y=-0.18),
     )
     return fig
-
