@@ -170,6 +170,10 @@ def render_number_formats():
         help="Type any ordinary decimal value. Every card below recomputes its bits and decoded value.",
     )
     formula("floating point value = (-1)^sign x (1 + mantissa_integer / 2^mantissa_bits) x 2^(stored_exponent - bias)")
+    st.markdown(
+        "For a slower interactive explanation of sign, exponent, mantissa, and bias, see "
+        "[Interactive Visualization of Floating Point IEEE 754](https://eibx.com/interactive-visualization-of-floating-point-ieee-754/)."
+    )
     st.caption("INT8 is shown as a contrast: it has sign and integer magnitude bits only. Decimal detail comes from a separate scaling factor.")
 
     rows = []
