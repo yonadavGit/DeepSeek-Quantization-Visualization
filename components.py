@@ -4,6 +4,7 @@ import streamlit as st
 
 
 PAGES = [
+    "Intro",
     "Number Formats",
     "Pillar 1: Mixed Precision",
     "Pillar 2: Fine-Grained Quantization",
@@ -407,10 +408,11 @@ def quantization_mapping_figure(result, step, focus_idx=0):
 
     if step >= 2:
         fig.add_annotation(
-            x=0,
-            y=1.55,
+            x=-qmax * 0.72,
+            y=2.47,
             text=f"scale = 127 / {alpha:g} = {scale:.4g}",
             showarrow=False,
+            xanchor="left",
             font=dict(size=15, color="#172033"),
             bgcolor="#f3f8f8",
             bordercolor="#2f6f73",

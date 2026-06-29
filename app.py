@@ -44,6 +44,32 @@ def chip(name):
     return f'<span class="precision-chip" style="background:{color}">{name}</span>'
 
 
+def render_intro():
+    st.title("DeepSeek Quantization")
+    st.write(
+        "A visual walkthrough of how high-precision training values can be compressed into "
+        "lower-precision formats while preserving enough signal for efficient training."
+    )
+    st.image(
+        "assets/images/fp32-to-fp8-quantization-meme.png",
+        caption="Quantization, emotionally accurate version.",
+        width="stretch",
+    )
+    st.markdown(
+        """
+        <div class="precision-card">
+            <h3>The Core Question</h3>
+            <p>
+            How do we get the memory and speed benefits of FP8 without destroying the numerical
+            information needed for training? The rest of the app breaks that question into number
+            formats, scaling, local blocks, accumulation precision, and online scale selection.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def quant_stepper(max_step):
     key = "quantization_step"
     if key not in st.session_state:
@@ -69,7 +95,8 @@ def render_quantization_panel():
     st.write(
         "This mirrors the chapter's scaling diagram: find the largest absolute value alpha, "
         "map the original FP32 range `[-alpha, +alpha]` onto the INT8 range `[-127, +127]`, "
-        "round to integer codes, then invert the scale to reconstruct approximate FP32 values."
+        "round to integer codes, then invert the scale to reconstruct approximate FP32 values. "
+        "The `127` comes from the largest positive code in this symmetric INT8 toy range."
     )
 
     vector_text = st.text_input(
@@ -97,7 +124,7 @@ def render_quantization_panel():
     steps = [
         "Start with the original FP32 vector and its bit representation.",
         "Find alpha = max(abs(x)), the highest absolute value.",
-        "Compute scale = 127 / alpha to map the FP32 range to INT8.",
+        "Compute scale = 127 / alpha, where 127 is the largest positive INT8 code used in the symmetric range.",
         "Map every FP32 value into the INT8 coordinate system.",
         "Round each scaled value to the nearest INT8 code.",
         "Apply the inverse transform: x_hat = q / scale.",
@@ -107,6 +134,10 @@ def render_quantization_panel():
     st.caption(f"Step {step + 1}: {steps[step]}")
 
     formula("alpha = max(abs(x)); scale = 127 / alpha; q = round(x * scale); x_hat = q / scale; error = x_hat - x")
+    st.caption(
+        "Why 127? This toy example uses symmetric signed INT8 codes `[-127, +127]`, "
+        "so `+alpha` maps to `+127`, `-alpha` maps to `-127`, and `0` maps to `0`."
+    )
 
     m1, m2, m3 = st.columns(3)
     m1.metric("alpha", f"{result['alpha']:.6g}" if step >= 1 else "not chosen yet")
@@ -312,9 +343,12 @@ def render_pillar1_mixed_precision():
             <div class="precision-card">
                 <h3>2. Backward Pass: dgrad</h3>
                 <p>This computes the gradient with respect to the input:</p>
-                <p><code>dL/dx = dL/dz @ W^T</code></p>
+                <p><code>forward: y = W x</code></p>
+                <p><code>backward: dL/dx = W^T @ dL/dy</code></p>
                 <p>
-                The incoming gradient <code>dL/dz</code> is stored as {chip('BF16')}, then converted to {chip('FP8')}.
+                Here <code>dL/dy</code> is the incoming gradient from the next layer: how much the loss
+                changes with respect to this layer's output <code>y</code>. It is stored as {chip('BF16')},
+                then converted to {chip('FP8')}.
                 The weight matrix is also converted to {chip('FP8')} for the GEMM.
                 The result <code>dL/dx</code> is accumulated in {chip('FP32')} and stored as {chip('BF16')}.
                 </p>
@@ -328,7 +362,8 @@ def render_pillar1_mixed_precision():
             <div class="precision-card">
                 <h3>3. Backward Pass: wgrad</h3>
                 <p>This computes the weight gradient:</p>
-                <p><code>dL/dW = x^T @ dL/dz</code></p>
+                <p><code>forward: y = W x</code></p>
+                <p><code>backward: dL/dW = dL/dy @ x^T</code></p>
                 <p>
                 The inputs to this GEMM use {chip('FP8')}, but the output <code>dW</code> is accumulated
                 and stored in {chip('FP32')}.
@@ -692,6 +727,11 @@ def render_pillar3_accumulation():
             It is written like a symbol rather than expanded as a formal acronym; read it as
             <b>N-sub-c</b>, the chunk interval.
             </p>
+            <p>
+            The point is not that the low-precision chunk is perfect. The point is that low precision
+            only carries a short partial sum. After each chunk, the subtotal is moved into an
+            <b>FP32</b> register, so the long-running sum across thousands of products is held in high precision.
+            </p>
             <div class="flow-step"><span class="tag" style="background:#2f7d51">promotion</span> Promote partial sum to CUDA Core</div>
             <div class="flow-arrow">↓</div>
             <div class="flow-step"><span class="tag" style="background:#2f7d51">FP32</span> FP32 Register</div>
@@ -949,7 +989,9 @@ def render_placeholder(title):
 st.sidebar.title("DeepSeek Quantization")
 page = st.sidebar.radio("Views", PAGES)
 
-if page == "Number Formats":
+if page == "Intro":
+    render_intro()
+elif page == "Number Formats":
     render_number_formats()
 elif page == "Pillar 1: Mixed Precision":
     render_pillar1_mixed_precision()
